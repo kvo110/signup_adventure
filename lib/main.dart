@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:confetti/confetti.dart';
 
-// validation helpers
+// quick helpers
 bool _nameOk(String v) => v.trim().length >= 2;
 bool _emailOk(String v) => RegExp(r'^[\w\.\-]+@[\w\.\-]+\.\w+$').hasMatch(v);
 
@@ -34,33 +34,65 @@ Color _colorPwd(BuildContext ctx, int s) {
 
 void main() => runApp(const App());
 
-class App extends StatelessWidget {
+class App extends StatefulWidget {
   const App({super.key});
+  @override
+  State<App> createState() => _AppState();
+}
+
+class _AppState extends State<App> {
+  bool isDarkMode = false;
+  void toggleTheme() => setState(() => isDarkMode = !isDarkMode);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Signup Adventure',
       debugShowCheckedModeBanner: false,
+      themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
       theme: ThemeData(
+        brightness: Brightness.light,
         useMaterial3: true,
         colorSchemeSeed: const Color(0xFF6C63FF),
         inputDecorationTheme: const InputDecorationTheme(
           border: OutlineInputBorder(),
         ),
       ),
-      home: const WelcomeScreen(),
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        useMaterial3: true,
+        colorSchemeSeed: const Color(0xFF6C63FF),
+        inputDecorationTheme: const InputDecorationTheme(
+          border: OutlineInputBorder(),
+        ),
+      ),
+      home: WelcomeScreen(onToggleTheme: toggleTheme, isDarkMode: isDarkMode),
     );
   }
 }
 
 class WelcomeScreen extends StatelessWidget {
-  const WelcomeScreen({super.key});
+  final VoidCallback onToggleTheme;
+  final bool isDarkMode;
+  const WelcomeScreen({
+    super.key,
+    required this.onToggleTheme,
+    required this.isDarkMode,
+  });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
+      appBar: AppBar(
+        actions: [
+          IconButton(
+            tooltip: isDarkMode ? 'Switch to light' : 'Switch to dark',
+            icon: Icon(isDarkMode ? Icons.dark_mode : Icons.light_mode),
+            onPressed: onToggleTheme,
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Stack(
           children: [
@@ -90,7 +122,7 @@ class WelcomeScreen extends StatelessWidget {
                     SizedBox(
                       width:
                           MediaQuery.of(context).size.width *
-                          0.9, // makes sure it doesn't wrap
+                          0.9, // keeps one line
                       height: 56,
                       child: DefaultTextStyle(
                         style: TextStyle(
@@ -101,26 +133,24 @@ class WelcomeScreen extends StatelessWidget {
                         ),
                         child: AnimatedTextKit(
                           repeatForever: true,
-                          displayFullTextOnTap: false,
-                          stopPauseOnTap: false,
+                          pause: const Duration(milliseconds: 800),
                           animatedTexts: [
                             TyperAnimatedText(
                               'Welcome to your adventure',
                               textAlign: TextAlign.center,
-                              speed: Duration(milliseconds: 50),
+                              speed: const Duration(milliseconds: 50),
                             ),
                             TyperAnimatedText(
                               'Make it personal',
                               textAlign: TextAlign.center,
-                              speed: Duration(milliseconds: 50),
+                              speed: const Duration(milliseconds: 50),
                             ),
                             TyperAnimatedText(
                               'Let\'s get started!',
                               textAlign: TextAlign.center,
-                              speed: Duration(milliseconds: 50),
+                              speed: const Duration(milliseconds: 50),
                             ),
                           ],
-                          pause: const Duration(milliseconds: 800),
                         ),
                       ),
                     ),
@@ -192,16 +222,15 @@ class _ProgressTrackerState extends State<ProgressTracker>
     vsync: this,
     duration: const Duration(milliseconds: 500),
   );
-
   double lastMilestone = 0;
   String message = '';
 
   static final milestones = [0.25, 0.50, 0.75, 1.0];
   static final messages = {
-    0.25: 'Great start!',
-    0.50: 'Halfway there!',
-    0.75: 'Almost done!',
-    1.00: 'Ready for adventure!',
+    0.25: 'Great start! 🎯',
+    0.50: 'Halfway there! 🏃‍♂️',
+    0.75: 'Almost done! 💪',
+    1.00: 'Ready for adventure! 🥳',
   };
 
   @override
@@ -232,7 +261,7 @@ class _ProgressTrackerState extends State<ProgressTracker>
           child: LinearProgressIndicator(
             minHeight: 10,
             value: widget.percent,
-            backgroundColor: cs.surfaceContainerHighest,
+            backgroundColor: cs.surfaceVariant.withOpacity(.25),
           ),
         ),
         const SizedBox(height: 8),
@@ -287,7 +316,6 @@ class _SignupScreenState extends State<SignupScreen>
   final avatars = ['🦊', '🐼', '🐧', '🐸', '🐯'];
   String? pickedAvatar;
 
-  // controllers for shake animation on invalid fields
   late final shakeName = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 300),
@@ -389,7 +417,7 @@ class _SignupScreenState extends State<SignupScreen>
     }
 
     setState(() => submitting = true);
-    await Future.delayed(const Duration(milliseconds: 1200)); // fake loading
+    await Future.delayed(const Duration(milliseconds: 1200));
     setState(() => submitting = false);
 
     final early = TimeOfDay.now().hour < 12;
@@ -494,6 +522,7 @@ class _SignupScreenState extends State<SignupScreen>
                         ),
                       ),
                       const SizedBox(height: 16),
+
                       _shakeWrap(
                         c: shakePwd,
                         valid: pwdScore >= 3 && pwdCtrl.text.isNotEmpty,
@@ -734,9 +763,14 @@ class _SuccessScreenState extends State<SuccessScreen> {
                   const SizedBox(height: 30),
                   FilledButton.tonal(
                     onPressed: () {
+                      final appState = context
+                          .findAncestorStateOfType<_AppState>()!;
                       Navigator.of(context).pushAndRemoveUntil(
                         MaterialPageRoute(
-                          builder: (_) => const WelcomeScreen(),
+                          builder: (_) => WelcomeScreen(
+                            onToggleTheme: appState.toggleTheme,
+                            isDarkMode: appState.isDarkMode,
+                          ),
                         ),
                         (route) => false,
                       );
